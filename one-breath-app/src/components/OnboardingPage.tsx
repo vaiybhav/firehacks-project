@@ -43,6 +43,19 @@ interface YogaPlan {
   hold_times: number[];
 }
 
+const DEFAULT_YOGA_PLAN: YogaPlan = {
+  name: "Quick Start Yoga",
+  poses: [
+    "Tree_Pose_or_Vrksasana_",
+    "Warrior_I_Pose_or_Virabhadrasana_I_",
+    "Warrior_II_Pose_or_Virabhadrasana_II_",
+    "Chair_Pose_or_Utkatasana_",
+    "Bound_Angle_Pose_or_Baddha_Konasana_",
+    "Corpse_Pose_or_Savasana_",
+  ],
+  hold_times: [15, 15, 15, 15, 15, 20],
+};
+
 const OnboardingPage = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -63,7 +76,7 @@ const OnboardingPage = () => {
     // Always start with Tree Pose
     const treePose = "Tree_Pose_or_Vrksasana_";
     selectedPoses.push(treePose);
-    holdTimes.push(20);
+    holdTimes.push(15);
 
     // Easy poses for beginners/older users (from the 24 available)
     const easyPoses = [
@@ -99,18 +112,18 @@ const OnboardingPage = () => {
 
     // Determine plan based on age, weight, and health
     let numPoses = 8; // Default
-    let baseHoldTime = 20; // Default hold time in seconds
+    let baseHoldTime = 15; // Default hold time in seconds
 
     if (userAge >= 60 || health === "poor" || userWeight > 250) {
       // Older users, poor health, or high weight - easier plan
       numPoses = 6;
-      baseHoldTime = 15;
+      baseHoldTime = 12;
       selectedPoses.push(...easyPoses.slice(0, numPoses - 1));
       holdTimes.push(...Array(numPoses - 1).fill(baseHoldTime));
     } else if (userAge >= 40 || health === "fair" || userWeight > 200) {
       // Middle-aged or fair health - moderate plan
       numPoses = 8;
-      baseHoldTime = 20;
+      baseHoldTime = 15;
       selectedPoses.push(...easyPoses.slice(0, 4));
       selectedPoses.push(...mediumPoses.slice(0, 3));
       holdTimes.push(...Array(4).fill(baseHoldTime));
@@ -118,7 +131,7 @@ const OnboardingPage = () => {
     } else if (health === "excellent" && userAge < 40 && userWeight < 200) {
       // Super healthy, young, and fit - include harder poses
       numPoses = 12;
-      baseHoldTime = 30;
+      baseHoldTime = 20;
       selectedPoses.push(...easyPoses.slice(0, 2));
       selectedPoses.push(...mediumPoses.slice(0, 4));
       selectedPoses.push(...advancedPoses.slice(0, 5)); // More advanced poses
@@ -128,7 +141,7 @@ const OnboardingPage = () => {
     } else {
       // Younger, good health - moderate challenging plan
       numPoses = 10;
-      baseHoldTime = 25;
+      baseHoldTime = 18;
       selectedPoses.push(...easyPoses.slice(0, 3));
       selectedPoses.push(...mediumPoses.slice(0, 4));
       selectedPoses.push(...advancedPoses.slice(0, 2));
@@ -218,18 +231,17 @@ const OnboardingPage = () => {
               // Save plan to localStorage and navigate to menu
               try {
                 localStorage.setItem("userYogaPlan", JSON.stringify(yogaPlan));
-                console.log("Navigating to /menu...");
-                navigate("/menu", { replace: true });
+                navigate("/yoga-session", { replace: true, state: { plan: yogaPlan } });
               } catch (error) {
                 console.error("Navigation error:", error);
                 // Fallback: try direct navigation
-                window.location.href = "/menu";
+                window.location.href = "/yoga-session";
               }
             }}
             className="w-full bg-white/20 hover:bg-white/30 text-white border border-white/30 text-lg py-6"
             size="lg"
           >
-            Continue to Menu
+            Start Yoga
           </Button>
         </div>
       </div>
@@ -264,11 +276,14 @@ const OnboardingPage = () => {
               Get Started
             </Button>
             <Button
-              onClick={() => navigate("/practice")}
+              onClick={() => {
+                localStorage.setItem("userYogaPlan", JSON.stringify(DEFAULT_YOGA_PLAN));
+                navigate("/yoga-session", { state: { plan: DEFAULT_YOGA_PLAN } });
+              }}
               className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20 text-sm py-3"
               variant="outline"
             >
-              Skip to Practice
+              Skip Setup
             </Button>
           </div>
         ) : (

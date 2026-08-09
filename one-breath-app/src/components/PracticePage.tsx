@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Pause, Play, Square, Brain, Flower2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import meditationBg from "@/assets/meditation-silhouette.jpg";
-import YogaPage from "./YogaPage";
 
-type PracticeMode = "meditate" | "yoga" | null;
+type PracticeMode = "meditate" | null;
 type MeditationMode = "morning" | "night" | "stress" | null;
 type BreathPhase = "in" | "hold" | "out" | "pause";
 
@@ -152,10 +151,6 @@ const PracticePage = () => {
     return "scale-[1.8]";
   };
 
-  if (practiceMode === "yoga") {
-    return <YogaPage />;
-  }
-
   if (!isActive && !practiceMode) {
     return (
       <div className="fixed inset-0">
@@ -199,7 +194,7 @@ const PracticePage = () => {
 
             {/* Yoga Option */}
             <div
-              onClick={() => setPracticeMode("yoga")}
+              onClick={() => navigate("/onboarding")}
               className="group relative p-8 rounded-3xl bg-gradient-to-br from-[hsl(var(--gradient-yoga-start))]/30 to-[hsl(var(--gradient-yoga-end))]/30 
  border border-white/20 cursor-pointer
                 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:from-[hsl(var(--gradient-yoga-start))]/50 hover:to-[hsl(var(--gradient-yoga-end))]/50
@@ -388,4 +383,3 @@ const PracticePage = () => {
 };
 
 export default PracticePage;
-

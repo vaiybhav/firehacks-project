@@ -207,6 +207,7 @@ def run_yoga_session(poses, hold_times, camera_id=0):
             time.sleep(0.01)
 
         print("✅ Camera ready, starting session loop...")
+        yoga_session.start_ready_countdown(5)
         print("📡 Sending first frame immediately...")
         is_running = True
         last_update_time = 0  # Start at 0 so first frame is sent immediately
@@ -231,6 +232,10 @@ def run_yoga_session(poses, hold_times, camera_id=0):
                     print(f"❌ Failed to read frame #{frame_count}")
                     break
                 frame_count += 1
+                # Present the webcam like a mirror. Flip before MediaPipe so
+                # the live skeleton, gray guide, coaching directions, and
+                # right-swipe gesture all share the displayed coordinates.
+                frame = cv2.flip(frame, 1)
                 if frame_count == 1:
                     print(f"✅ First frame read successfully: {frame.shape}")
                 elif frame_count == 2:
@@ -265,6 +270,15 @@ def run_yoga_session(poses, hold_times, camera_id=0):
                     result = yoga_session.process_frame(frame, keypoints=mp_keypoints)
                     # Extract debug info from result
                     debug_info = result.get('debug_info', {}) if isinstance(result, dict) else {}
+                    if isinstance(result, dict) and result.get('gesture_skip'):
+                        pose_after_swipe = yoga_session.get_current_pose()
+                        if pose_after_swipe:
+                            socketio.emit('pose_changed', {
+                                'currentPoseIndex': yoga_session.current_pose_index,
+                                'currentPose': pose_after_swipe.get('name', ''),
+                                'holdTime': pose_after_swipe.get('target_hold', 20),
+                                'reason': 'swipe_right',
+                            })
                     if frame_count <= 5:
                         print(f"✅ Frame {frame_count} processed: has_keypoints={result.get('keypoints') is not None}, debug_keys={list(debug_info.keys())}")
                 except Exception as e:
@@ -600,6 +614,7 @@ def run_yoga_session(poses, hold_times, camera_id=0):
                             'poseStatus': str(pose_status) if pose_status else 'unknown',
                             'feedback': str(feedback) if feedback else '',
                             'referenceCoach': make_json_serializable(result.get('reference_coach', {})),
+                            'readyCountdown': int(result.get('ready_countdown', 0)),
                             'poseComplete': bool(pose_complete),  # Add pose completion status
                             'videoFrame': frame_base64 if frame_base64 else None,  # Add video frame (only if encoded successfully)
                             'video_frame': frame_base64 if frame_base64 else None,  # Also send with underscore for compatibility

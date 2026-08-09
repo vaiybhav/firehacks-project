@@ -71,7 +71,7 @@ const StartupAnimation = () => {
             Find your inner peace
           </p>
           <Button
-            onClick={() => navigate("/onboarding")}
+            onClick={() => navigate("/menu")}
             className={`bg-white/20 hover:bg-white/30 text-white border border-white/30 text-lg px-8 py-6 transition-all duration-500 ${
               showButton 
                 ? 'opacity-100 translate-y-0' 

@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pause, Play, Square, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { io, Socket } from "socket.io-client";
-import HUDOverlay from "./HUDOverlay";
 import meditationBg from "@/assets/meditation-silhouette.jpg";
 
 
@@ -53,6 +52,7 @@ interface SessionState {
   isInPose: boolean;
   poseStatus: "correct" | "improvable" | "wrong" | "unknown";
   feedback: string;
+  readyCountdown: number;
   sessionActive: boolean;
   statistics: SessionStatistics | null;
   debugInfo: DebugInfo | null;  // Debug information
@@ -93,6 +93,7 @@ const YogaSessionPage = () => {
     isInPose: false,
     poseStatus: "unknown",
     feedback: "",
+    readyCountdown: 0,
     sessionActive: false,
     statistics: null,
     debugInfo: null,  // Debug information
@@ -284,6 +285,7 @@ const YogaSessionPage = () => {
               isInPose: data.isInPose ?? prev.isInPose,
               poseStatus: data.poseStatus ?? prev.poseStatus,
               feedback: data.feedback ?? prev.feedback,
+              readyCountdown: data.readyCountdown ?? data.ready_countdown ?? prev.readyCountdown,
               elapsedTime: newElapsedTime,  // Use backend value directly - no stabilization needed
               statistics: statistics ?? prev.statistics, // Keep previous stats if not provided
               debugInfo: data.debugInfo ?? data.debug_info ?? prev.debugInfo,  // Add debug info
@@ -433,6 +435,7 @@ const YogaSessionPage = () => {
     const canSpeak =
       voiceCoachingEnabled &&
       sessionState.sessionActive &&
+      sessionState.readyCountdown === 0 &&
       !isPaused &&
       instruction.length > 0 &&
       !isHoldMessage &&
@@ -455,6 +458,7 @@ const YogaSessionPage = () => {
   }, [
     sessionState.referenceCoach?.instruction,
     sessionState.sessionActive,
+    sessionState.readyCountdown,
     voiceCoachingEnabled,
     isPaused,
   ]);
@@ -579,6 +583,7 @@ const YogaSessionPage = () => {
 
   // Get status color
   const getStatusColor = () => {
+    if (sessionState.isInPose) return "bg-emerald-400";
     switch (sessionState.poseStatus) {
       case "correct":
         return "bg-green-500";
@@ -593,6 +598,7 @@ const YogaSessionPage = () => {
 
   // Get status text
   const getStatusText = () => {
+    if (sessionState.isInPose) return "Looking good";
     switch (sessionState.poseStatus) {
       case "correct":
         return "Perfect Form!";
@@ -694,252 +700,184 @@ const YogaSessionPage = () => {
     );
   }
 
+  const toggleVoiceCoaching = () => {
+    setVoiceCoachingEnabled((enabled) => {
+      if (enabled && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      if (!enabled) {
+        lastSpokenCoachCueRef.current = "";
+        lastSpokenCoachTimeRef.current = 0;
+      }
+      return !enabled;
+    });
+  };
+
   return (
-    <>
-      <div className="min-h-screen relative overflow-hidden bg-black">
-        {/* Dynamic Background */}
-        <div
-          className={`absolute inset-0 transition-opacity duration-1000 ${sessionState.isInPose ? 'opacity-0' : 'opacity-40'
-            }`}
-          style={{
-            backgroundImage: `url(${meditationBg})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        />
-
-        {/* Animated Gradients */}
-        <div className={`absolute inset-0 opacity-30 transition-all duration-1000 ${sessionState.isInPose
-            ? 'bg-gradient-to-br from-green-900 via-emerald-900 to-cyan-900 animate-pulse-slow'
-            : 'bg-gradient-to-br from-purple-900 via-blue-900 to-black animate-gradient-shift'
-          }`} />
-
-        {/* Grid Overlay for Tech Feel */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_100%)] pointer-events-none" />
-        <div className="absolute inset-0 bg-black/60" />
-
-        {/* Header */}
-        <div className="relative z-10 p-6 flex justify-between items-center">
+    <div className="min-h-screen bg-[#0d100f] text-white">
+      <header className="border-b border-white/10 bg-[#0d100f]/95">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-4 py-4 md:px-8">
           <Button
             onClick={endSession}
-            className="bg-white/10 hover:bg-white/20 text-white border border-white/30"
+            variant="ghost"
+            className="text-white/70 hover:bg-white/10 hover:text-white"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            End Session
+            End session
           </Button>
 
-          <div className="text-white/80 text-sm">
-            Pose {sessionState.currentPoseIndex + 1} of {plan?.poses?.length || 0}
+          <div className="text-center">
+            <p className="text-xs uppercase tracking-[0.18em] text-white/45">
+              Pose {sessionState.currentPoseIndex + 1} of {plan?.poses?.length || 0}
+            </p>
+            <h1 className="mt-1 text-lg font-medium md:text-xl">
+              {formatPoseName(sessionState.currentPose)}
+            </h1>
+          </div>
+
+          <div className="flex min-w-[100px] items-center justify-end gap-2 text-xs text-white/50">
+            <span className={`h-2 w-2 rounded-full ${cameraActive ? "bg-emerald-400" : "bg-white/30"}`} />
+            {cameraActive ? "Camera on" : "Connecting"}
           </div>
         </div>
+      </header>
 
-        {/* Main Content */}
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-120px)] px-8 py-8">
-          {/* Current Pose Name and Reference Image */}
-          <div className="text-center mb-6 relative w-full max-w-6xl animate-fade-in-up">
-            <h2 className="text-4xl md:text-5xl font-light text-white mb-2 drop-shadow-2xl animate-shimmer">
-              {formatPoseName(sessionState.currentPose)}
-            </h2>
-            <p className="text-white/70 text-lg animate-float" style={{ animationDelay: '0.2s' }}>
-              Hold for {sessionState.holdTime} seconds
-            </p>
-          </div>
-
-          {/* Video Feed and periodically refreshed reference coaching */}
-          {videoFrame ? (
-            <div className="mb-8 w-full max-w-6xl flex flex-col lg:flex-row justify-center items-stretch gap-5 animate-scale-in-bounce">
-              <div className="relative flex-1 bg-black/80 rounded-lg overflow-hidden shadow-2xl border-2 border-white/30 animate-glow-pulse" style={{ aspectRatio: '16/9' }}>
+      <main className="mx-auto max-w-[1500px] px-4 py-5 md:px-8 md:py-7">
+        <section>
+            <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+              {videoFrame ? (
                 <img
                   ref={videoRef}
                   src={videoFrame}
-                  alt="Yoga pose detection"
-                  className="w-full h-full object-contain"
-                  style={{ display: 'block' }}
-                  onError={(e) => {
-                    console.error("❌ Image load error:", e);
-                    console.error("Frame data length:", videoFrame?.length);
-                  }}
-                  onLoad={() => {
-                    console.log("✅ Video frame image loaded successfully");
-                  }}
+                  alt="Mirrored yoga coaching camera"
+                  className="h-full w-full object-contain"
+                  onError={(error) => console.error("Camera frame failed to load", error)}
                 />
-                {/* Animated border glow */}
-                <div className="absolute inset-0 rounded-lg pointer-events-none"
-                  style={{
-                    boxShadow: 'inset 0 0 40px rgba(255, 255, 255, 0.1), 0 0 60px rgba(255, 255, 255, 0.15)',
-                    animation: 'glow-pulse 3s ease-in-out infinite'
-                  }}
-                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-center">
+                  <div>
+                    <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
+                    <p className="text-sm text-white/55">Waiting for camera feed…</p>
+                  </div>
+                </div>
+              )}
 
-                {/* HUD Overlay */}
-                <HUDOverlay
-                  isVisible={true}
-                  debugInfo={sessionState.debugInfo}
-                  statistics={sessionState.statistics}
-                />
-
+              <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-black/60 px-3 py-2 text-sm backdrop-blur-md">
+                <span className={`h-2.5 w-2.5 rounded-full ${getStatusColor()}`} />
+                <span>{getStatusText()}</span>
               </div>
 
-              <aside className="lg:w-72 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-5 flex flex-col justify-center shadow-xl">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <p className="text-gray-300 text-xs uppercase tracking-[0.2em]">
-                    Reference coach
-                  </p>
+              <div className="absolute bottom-4 left-4 rounded-xl bg-black/65 px-4 py-3 backdrop-blur-md">
+                <p className="text-3xl font-light tabular-nums">{remainingTime}s</p>
+                <p className="mt-0.5 text-xs text-white/55">remaining</p>
+              </div>
+
+              {sessionState.readyCountdown > 0 && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 backdrop-blur-[2px]">
+                  <div className="text-center">
+                    <p className="text-sm uppercase tracking-[0.25em] text-white/65">Get ready</p>
+                    <p className="mt-2 text-8xl font-light tabular-nums text-white">
+                      {sessionState.readyCountdown}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <aside className="absolute right-4 top-1/2 hidden w-80 -translate-y-1/2 flex-col rounded-2xl border border-white/15 bg-black/65 p-5 shadow-2xl backdrop-blur-xl md:flex">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/50">Coach</p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setVoiceCoachingEnabled((enabled) => {
-                        if (enabled && "speechSynthesis" in window) {
-                          window.speechSynthesis.cancel();
-                        }
-                        if (!enabled) {
-                          lastSpokenCoachCueRef.current = "";
-                          lastSpokenCoachTimeRef.current = 0;
-                        }
-                        return !enabled;
-                      });
-                    }}
-                    className="rounded-full border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                    onClick={toggleVoiceCoaching}
+                    className="rounded-full bg-white/10 p-2 text-white/70 transition hover:bg-white/15 hover:text-white"
                     aria-label={voiceCoachingEnabled ? "Mute voice coaching" : "Enable voice coaching"}
                     title={voiceCoachingEnabled ? "Mute voice coaching" : "Enable voice coaching"}
                   >
                     {voiceCoachingEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
                   </button>
                 </div>
-                <p className="text-white text-xl leading-relaxed">
-                  {sessionState.referenceCoach?.instruction || "Finding your reference points…"}
+                <p className="mt-6 text-xl font-light leading-snug text-white">
+                  {sessionState.isInPose
+                    ? "Nice work — keep holding."
+                    : sessionState.referenceCoach?.instruction || "Finding your reference points…"}
                 </p>
-                <p className="text-white/45 text-xs mt-4">
-                  Spoken guidance {voiceCoachingEnabled ? "on" : "muted"} · updates every {sessionState.referenceCoach?.update_interval || 3} seconds
+                {sessionState.feedback && !sessionState.isInPose && (
+                  <p className="mt-3 text-sm leading-relaxed text-white/55">{sessionState.feedback}</p>
+                )}
+                <p className="mt-6 text-xs text-white/35">
+                  {voiceCoachingEnabled ? "Voice on" : "Voice muted"} · swipe right to skip
                 </p>
               </aside>
             </div>
-          ) : (
-            <div className="mb-8 w-full max-w-4xl flex justify-center animate-fade-in">
-              <div className="relative bg-black/80 rounded-lg overflow-hidden shadow-2xl border-2 border-white/30 flex items-center justify-center animate-glow-pulse" style={{ aspectRatio: '16/9', minHeight: '400px' }}>
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mx-auto mb-4 animate-glow-pulse"></div>
-                  <div className="animate-pulse text-white/60 text-lg animate-shimmer">Waiting for camera feed...</div>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {/* Status and Controls Row */}
-          <div className="flex flex-col md:flex-row items-center justify-center gap-8 w-full max-w-6xl">
-            {/* Status Circle */}
-            <div className="relative w-48 h-48">
-              {/* Outer ring - progress */}
-              <svg className="w-48 h-48 transform -rotate-90">
-                <circle
-                  cx="96"
-                  cy="96"
-                  r="90"
-                  stroke="rgba(255,255,255,0.3)"
-                  strokeWidth="6"
-                  fill="none"
-                />
-                <circle
-                  cx="96"
-                  cy="96"
-                  r="90"
-                  stroke="white"
-                  strokeWidth="6"
-                  fill="none"
-                  strokeDasharray={`${2 * Math.PI * 90}`}
-                  strokeDashoffset={`${2 * Math.PI * 90 * (1 - progress / 100)}`}
-                  className="transition-all duration-300"
-                />
-              </svg>
-
-              {/* Status circle */}
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
               <div
-                className={`absolute inset-0 rounded-full ${getStatusColor()} transition-all duration-500 flex items-center justify-center shadow-2xl animate-glow-pulse`}
-                style={{
-                  width: "150px",
-                  height: "150px",
-                  left: "50%",
-                  top: "50%",
-                  transform: "translate(-50%, -50%)",
-                  opacity: sessionState.isInPose ? 1 : 0.4,
-                  boxShadow: '0 0 40px rgba(255, 255, 255, 0.2), inset 0 0 30px rgba(255, 255, 255, 0.1)',
-                }}
+                className="h-full rounded-full bg-emerald-400 transition-[width] duration-300"
+                style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+              />
+            </div>
+          <aside className="mt-4 flex flex-col rounded-2xl border border-white/10 bg-white/[0.04] p-5 md:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/45">Coach</p>
+              <button
+                type="button"
+                onClick={toggleVoiceCoaching}
+                className="rounded-full border border-white/10 bg-white/[0.05] p-2.5 text-white/65 transition hover:bg-white/10 hover:text-white"
+                aria-label={voiceCoachingEnabled ? "Mute voice coaching" : "Enable voice coaching"}
+                title={voiceCoachingEnabled ? "Mute voice coaching" : "Enable voice coaching"}
               >
-                <div className="text-center">
-                  <div className="text-white text-3xl font-light mb-1">
-                    {remainingTime}s
-                  </div>
-                  <div className="text-white/90 text-xs">
-                    {getStatusText()}
-                  </div>
-                </div>
-              </div>
+                {voiceCoachingEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
             </div>
 
-            {/* Controls */}
-            <div className="flex flex-col gap-3">
-              <Button
-                onClick={togglePause}
-                className="bg-white/20 hover:bg-white/30 text-white border border-white/30"
-              >
-                {isPaused ? (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Resume (Space)
-                  </>
-                ) : (
-                  <>
-                    <Pause className="mr-2 h-4 w-4" />
-                    Pause (Space)
-                  </>
-                )}
-              </Button>
-
-              {sessionState.currentPoseIndex < (plan?.poses?.length || 0) - 1 && (
-                <Button
-                  onClick={nextPose}
-                  className="bg-white/20 hover:bg-white/30 text-white border border-white/30"
-                >
-                  Skip to Next (N)
-                </Button>
+            <div className="py-5">
+              <p className="text-2xl font-light leading-snug text-white/95">
+                {sessionState.isInPose
+                  ? "Nice work — keep holding."
+                  : sessionState.referenceCoach?.instruction || "Finding your reference points…"}
+              </p>
+              {sessionState.feedback && !sessionState.isInPose && (
+                <p className="mt-4 border-l-2 border-white/20 pl-3 text-sm leading-relaxed text-white/55">
+                  {sessionState.feedback}
+                </p>
               )}
-
-              <Button
-                onClick={repeatInstruction}
-                className="bg-white/20 hover:bg-white/30 text-white border border-white/30"
-              >
-                Repeat Instruction (R)
-              </Button>
-
-              <Button
-                onClick={endSession}
-                className="bg-red-500/20 hover:bg-red-500/30 text-white border border-red-500/30"
-              >
-                Quit Session (Q)
-              </Button>
-
-              {/* Camera Status */}
-              <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-full justify-center">
-                <div className={`w-2 h-2 rounded-full ${cameraActive ? "bg-green-500" : "bg-red-500"}`}></div>
-                <span className="text-white/80 text-xs">
-                  {cameraActive ? "Camera Active" : "Camera Inactive"}
-                </span>
-              </div>
             </div>
-          </div>
 
-          {/* Feedback */}
-          {sessionState.feedback && (
-            <div className="mt-8 max-w-2xl w-full">
-              <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-                <p className="text-white text-center text-lg">{sessionState.feedback}</p>
-              </div>
-            </div>
+            <p className="text-xs leading-relaxed text-white/35">
+              {voiceCoachingEnabled ? "Voice guidance on" : "Voice guidance muted"} · swipe right to skip
+            </p>
+          </aside>
+        </section>
+
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 border-t border-white/10 pt-5">
+          <Button
+            onClick={togglePause}
+            className="bg-white/10 text-white hover:bg-white/15"
+          >
+            {isPaused ? <Play className="mr-2 h-4 w-4" /> : <Pause className="mr-2 h-4 w-4" />}
+            {isPaused ? "Resume" : "Pause"}
+          </Button>
+
+          {sessionState.currentPoseIndex < (plan?.poses?.length || 0) - 1 && (
+            <Button
+              onClick={nextPose}
+              variant="ghost"
+              className="text-white/65 hover:bg-white/10 hover:text-white"
+            >
+              Next pose →
+            </Button>
           )}
 
+          <Button
+            onClick={repeatInstruction}
+            variant="ghost"
+            className="text-white/65 hover:bg-white/10 hover:text-white"
+          >
+            Repeat instruction
+          </Button>
         </div>
-      </div>
-    </>
+      </main>
+    </div>
   );
 };
 

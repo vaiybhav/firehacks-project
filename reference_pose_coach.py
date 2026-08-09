@@ -235,8 +235,8 @@ class ReferencePoseCoach:
 
         # The green/perfect state is authoritative. Never contradict it with a
         # pixel correction, even if one noisy landmark is outside the guide.
-        if form_status == "correct" and in_pose:
-            self.last_instruction = "Within range — hold steady."
+        if in_pose:
+            self.last_instruction = "Nice work — keep holding."
             return self.state(frame_shape)
 
         if now - self.last_update_time < self.update_interval:
@@ -272,7 +272,7 @@ class ReferencePoseCoach:
         distance, cluster_name, delta = best
         tolerance = self.current_tolerance_px
         if distance <= tolerance:
-            self.last_instruction = "Within range — hold steady."
+            self.last_instruction = "Great alignment — hold steady."
             return self.state(frame_shape)
 
         dx, dy = float(delta[0]), float(delta[1])

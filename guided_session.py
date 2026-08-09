@@ -4,6 +4,7 @@ Guided yoga session with step-by-step instructions
 import cv2
 import numpy as np
 import time
+import math
 from typing import Dict, Optional
 from pose_detector import PoseDetector
 from pose_classifier import PoseClassifier
@@ -12,6 +13,7 @@ from session_tracker import SessionTracker
 from yoga_program import YogaProgram
 from tts_client import TTSClient
 from reference_pose_coach import ReferencePoseCoach
+from swipe_gesture import SwipeGestureDetector
 import config
 import os
 
@@ -31,6 +33,7 @@ class GuidedSession:
         self.tracker = SessionTracker()
         self.program_manager = YogaProgram()
         self.reference_coach = ReferencePoseCoach(update_interval=3.0, history_size=30)
+        self.swipe_gesture = SwipeGestureDetector()
         
         # Initialize TTS client for voice feedback (Arcas = deep male voice)
         try:
@@ -82,6 +85,7 @@ class GuidedSession:
         self.accumulated_hold_time = 0.0  # Total time accumulated for current pose (pauses when exiting)
         self.last_pause_time = None  # When we last paused (exited pose)
         self.paused = False  # Manual pause flag
+        self.ready_countdown_end = None
         
         # Correction logging
         self.corrections_log = []  # Store all corrections during session
@@ -140,6 +144,8 @@ class GuidedSession:
         self.feedback_already_spoken.clear()
         self.last_spoken_feedback = None
         self.last_spoken_time = 0.0
+        self.swipe_gesture.reset(preserve_cooldown=False)
+        self.ready_countdown_end = None
         # Reset color state
         self.last_color_state = 'unknown'
         self.color_green_frames = 0
@@ -200,6 +206,25 @@ class GuidedSession:
         # Detect pose (skipped when the caller already did it)
         if keypoints is _UNSET:
             keypoints = self.detector.detect_pose(frame)
+
+        countdown_remaining = self.get_ready_countdown()
+        gesture = (
+            self.swipe_gesture.update(keypoints, frame.shape)
+            if countdown_remaining == 0 and not self.paused
+            else None
+        )
+        gesture_skip = False
+        if (
+            gesture is not None
+            and self.current_program
+            and self.current_pose_index < len(self.current_program['poses']) - 1
+        ):
+            print(
+                f"👋 {gesture['hand'].title()}-hand right swipe detected "
+                f"(distance={gesture['distance']}, speed={gesture['speed']})"
+            )
+            self.next_pose()
+            gesture_skip = True
         
         # Check if full body is in frame
         frame_height = frame.shape[0]
@@ -638,6 +663,18 @@ class GuidedSession:
                     import traceback
                     traceback.print_exc()
         
+        # The initial ready countdown and manual pause are authoritative: pose
+        # recognition may continue for a stable preview, but the hold cannot
+        # begin until coaching is active.
+        countdown_remaining = self.get_ready_countdown()
+        if countdown_remaining > 0 or self.paused:
+            self._pause_hold_timer()
+            if countdown_remaining > 0:
+                self.accumulated_hold_time = 0.0
+            self.in_pose = False
+            self.pose_entered = False
+            self.pose_stability_frames = []
+
         # Not in pose: stop the clock but KEEP the banked time. This must run
         # before current_hold is computed so a broken pose stops accruing time.
         if not self.in_pose:
@@ -749,20 +786,23 @@ class GuidedSession:
         )
 
         # Generate instruction message - pass debug_info for voice feedback
-        instruction = self._generate_instruction(
-            current_pose_info, 
-            is_optimal_distance,
-            distance_msg,
-            detected_pose,
-            confidence,
-            form_feedback,
-            current_hold,
-            target_hold,
-            pose_complete,
-            body_fully_visible,
-            visibility_message,
-            debug_info  # Pass debug_info so voice feedback uses actual detection values
-        )
+        if countdown_remaining > 0:
+            instruction = f"Starting in {countdown_remaining}."
+        else:
+            instruction = self._generate_instruction(
+                current_pose_info,
+                is_optimal_distance,
+                distance_msg,
+                detected_pose,
+                confidence,
+                form_feedback,
+                current_hold,
+                target_hold,
+                pose_complete,
+                body_fully_visible,
+                visibility_message,
+                debug_info
+            )
         
         return {
             'status': 'in_progress',
@@ -784,7 +824,28 @@ class GuidedSession:
             'visibility_message': visibility_message,
             'debug_info': debug_info,  # Add debug info
             'reference_coach': reference_coach,
+            'gesture_skip': gesture_skip,
+            'gesture': gesture,
+            'ready_countdown': countdown_remaining,
         }
+
+    def start_ready_countdown(self, seconds: int = 5):
+        """Start the pre-session countdown once the camera preview is ready."""
+        self.ready_countdown_end = time.monotonic() + max(0, seconds)
+        self._pause_hold_timer()
+        self.accumulated_hold_time = 0.0
+        self.in_pose = False
+        self.pose_entered = False
+        self.pose_stability_frames = []
+
+    def get_ready_countdown(self) -> int:
+        if self.ready_countdown_end is None:
+            return 0
+        remaining = max(0.0, self.ready_countdown_end - time.monotonic())
+        if remaining <= 0:
+            self.ready_countdown_end = None
+            return 0
+        return int(math.ceil(remaining))
     
     def _generate_instruction(self, pose_info, is_optimal_distance, distance_msg, 
                              detected_pose, confidence, form_feedback, 
@@ -1143,6 +1204,7 @@ class GuidedSession:
             self.feedback_already_spoken.clear()
             self.last_spoken_feedback = None
             self.last_spoken_time = 0.0
+            self.swipe_gesture.reset(preserve_cooldown=True)
             
             # Reset color state for new pose
             if hasattr(self, 'pose_wrong_frames'):

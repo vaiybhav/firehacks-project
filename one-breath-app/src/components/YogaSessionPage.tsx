@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pause, Play, Square } from "lucide-react";
+import { ArrowLeft, Pause, Play, Square, Volume2, VolumeX } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import HUDOverlay from "./HUDOverlay";
 import meditationBg from "@/assets/meditation-silhouette.jpg";
@@ -106,11 +106,14 @@ const YogaSessionPage = () => {
   const [availableCameras, setAvailableCameras] = useState<Array<{ id: number, name: string, width: number, height: number }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<number>(0);
   const [loadingCameras, setLoadingCameras] = useState(false);
+  const [voiceCoachingEnabled, setVoiceCoachingEnabled] = useState(true);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const loadingRef = useRef(false);
   const cameraActiveRef = useRef(false);
   const videoRef = useRef<HTMLImageElement | null>(null);
+  const lastSpokenCoachCueRef = useRef("");
+  const lastSpokenCoachTimeRef = useRef(0);
 
   // Redirect to onboarding if no plan
   useEffect(() => {
@@ -416,6 +419,46 @@ const YogaSessionPage = () => {
     }
   }, []);
 
+  // Speak the same stabilized, plain-language cue shown beside the camera.
+  // Browser speech keeps this feature local and does not require an API key.
+  useEffect(() => {
+    const instruction = sessionState.referenceCoach?.instruction?.trim() || "";
+    const isHoldMessage = instruction.toLowerCase().includes("within range");
+    if (isHoldMessage) {
+      // Once the user settles into range, allow the same cue to be spoken
+      // again later if they drift back out of alignment.
+      lastSpokenCoachCueRef.current = "";
+      return;
+    }
+    const canSpeak =
+      voiceCoachingEnabled &&
+      sessionState.sessionActive &&
+      !isPaused &&
+      instruction.length > 0 &&
+      !isHoldMessage &&
+      "speechSynthesis" in window;
+
+    if (!canSpeak || instruction === lastSpokenCoachCueRef.current) return;
+
+    const now = Date.now();
+    const minimumGapMs = 6000;
+    if (now - lastSpokenCoachTimeRef.current < minimumGapMs) return;
+    if (window.speechSynthesis.speaking || window.speechSynthesis.pending) return;
+
+    const utterance = new SpeechSynthesisUtterance(instruction);
+    utterance.rate = 0.92;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+    lastSpokenCoachCueRef.current = instruction;
+    lastSpokenCoachTimeRef.current = now;
+  }, [
+    sessionState.referenceCoach?.instruction,
+    sessionState.sessionActive,
+    voiceCoachingEnabled,
+    isPaused,
+  ]);
+
   // Keyboard controls: N=next, Q=quit, R=repeat, Space=pause
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -452,6 +495,10 @@ const YogaSessionPage = () => {
     const newPausedState = !isPaused;
     setIsPaused(newPausedState);
 
+    if (newPausedState && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+
     if (socketRef.current) {
       if (newPausedState) {
         socketRef.current.emit('pause_session');
@@ -476,6 +523,9 @@ const YogaSessionPage = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -491,6 +541,9 @@ const YogaSessionPage = () => {
 
   // End session
   const endSession = async () => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
     if (socketRef.current) {
       socketRef.current.emit("end_session");
     }
@@ -728,14 +781,36 @@ const YogaSessionPage = () => {
               </div>
 
               <aside className="lg:w-72 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 p-5 flex flex-col justify-center shadow-xl">
-                <p className="text-gray-300 text-xs uppercase tracking-[0.2em] mb-3">
-                  Reference coach
-                </p>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <p className="text-gray-300 text-xs uppercase tracking-[0.2em]">
+                    Reference coach
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoiceCoachingEnabled((enabled) => {
+                        if (enabled && "speechSynthesis" in window) {
+                          window.speechSynthesis.cancel();
+                        }
+                        if (!enabled) {
+                          lastSpokenCoachCueRef.current = "";
+                          lastSpokenCoachTimeRef.current = 0;
+                        }
+                        return !enabled;
+                      });
+                    }}
+                    className="rounded-full border border-white/20 bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                    aria-label={voiceCoachingEnabled ? "Mute voice coaching" : "Enable voice coaching"}
+                    title={voiceCoachingEnabled ? "Mute voice coaching" : "Enable voice coaching"}
+                  >
+                    {voiceCoachingEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+                  </button>
+                </div>
                 <p className="text-white text-xl leading-relaxed">
                   {sessionState.referenceCoach?.instruction || "Finding your reference points…"}
                 </p>
                 <p className="text-white/45 text-xs mt-4">
-                  Updates every {sessionState.referenceCoach?.update_interval || 3} seconds · smoothed to ignore brief tracking noise
+                  Spoken guidance {voiceCoachingEnabled ? "on" : "muted"} · updates every {sessionState.referenceCoach?.update_interval || 3} seconds
                 </p>
               </aside>
             </div>

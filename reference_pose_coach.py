@@ -306,7 +306,6 @@ class ReferencePoseCoach:
             "available": self._full_reference_for_frame(frame_shape) is not None,
             "instruction": self.last_instruction,
             "update_interval": self.update_interval,
-            "tolerance_px": round(self.current_tolerance_px, 1),
         }
 
     def draw(self, frame: np.ndarray) -> np.ndarray:

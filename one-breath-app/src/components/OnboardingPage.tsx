@@ -44,16 +44,20 @@ interface YogaPlan {
 }
 
 const DEFAULT_YOGA_PLAN: YogaPlan = {
-  name: "Quick Start Yoga",
+  name: "Balanced Beginner Flow",
   poses: [
-    "Tree_Pose_or_Vrksasana_",
-    "Warrior_I_Pose_or_Virabhadrasana_I_",
+    "Cat_Cow_Pose_or_Marjaryasana_",
+    "Extended_Puppy_Pose_or_Uttana_Shishosana_",
+    "Low_Lunge_pose_or_Anjaneyasana_",
     "Warrior_II_Pose_or_Virabhadrasana_II_",
+    "Tree_Pose_or_Vrksasana_",
     "Chair_Pose_or_Utkatasana_",
-    "Bound_Angle_Pose_or_Baddha_Konasana_",
+    "Garland_Pose_or_Malasana_",
+    "Virasana_or_Vajrasana",
+    "Supta_Baddha_Konasana_",
     "Corpse_Pose_or_Savasana_",
   ],
-  hold_times: [15, 15, 15, 15, 15, 20],
+  hold_times: [12, 12, 15, 15, 15, 12, 12, 12, 15, 20],
 };
 
 const OnboardingPage = () => {
@@ -69,96 +73,56 @@ const OnboardingPage = () => {
     const userWeight = profile.weight;
     const health = profile.healthLevel.toLowerCase();
 
-    // Determine difficulty and pose selection based on inputs
-    let selectedPoses: string[] = [];
-    let holdTimes: number[] = [];
+    const gentleFlow = {
+      name: "Gentle Floor Flow",
+      poses: [
+        "Cat_Cow_Pose_or_Marjaryasana_",
+        "Extended_Puppy_Pose_or_Uttana_Shishosana_",
+        "Virasana_or_Vajrasana",
+        "Wind_Relieving_pose_or_Pawanmuktasana",
+        "Supta_Baddha_Konasana_",
+        "Corpse_Pose_or_Savasana_",
+      ],
+      holdTimes: [10, 12, 12, 12, 15, 20],
+    };
 
-    // Always start with Tree Pose
-    const treePose = "Tree_Pose_or_Vrksasana_";
-    selectedPoses.push(treePose);
-    holdTimes.push(15);
+    const balancedFlow = {
+      name: "Balanced Beginner Flow",
+      poses: DEFAULT_YOGA_PLAN.poses,
+      holdTimes: DEFAULT_YOGA_PLAN.hold_times,
+    };
 
-    // Easy poses for beginners/older users (from the 24 available)
-    const easyPoses = [
-      "Warrior_I_Pose_or_Virabhadrasana_I_",
-      "Warrior_II_Pose_or_Virabhadrasana_II_",
-      "Chair_Pose_or_Utkatasana_",
-      "Corpse_Pose_or_Savasana_",
-      "Cat_Cow_Pose_or_Marjaryasana_",
-      "Happy_Baby_Pose_or_Ananda_Balasana_",
-      "Wind_Relieving_pose_or_Pawanmuktasana",
-    ].filter(pose => AVAILABLE_POSES.includes(pose));
+    const activeFlow = {
+      name: "Active Full-Body Flow",
+      poses: [
+        "Cat_Cow_Pose_or_Marjaryasana_",
+        "Extended_Puppy_Pose_or_Uttana_Shishosana_",
+        "Plank_Pose_or_Kumbhakasana_",
+        "Low_Lunge_pose_or_Anjaneyasana_",
+        "Warrior_II_Pose_or_Virabhadrasana_II_",
+        "viparita_virabhadrasana_or_reverse_warrior_pose",
+        "Chair_Pose_or_Utkatasana_",
+        "Tree_Pose_or_Vrksasana_",
+        "Garland_Pose_or_Malasana_",
+        "Boat_Pose_or_Paripurna_Navasana_",
+        "Supta_Baddha_Konasana_",
+        "Corpse_Pose_or_Savasana_",
+      ],
+      holdTimes: [10, 10, 12, 15, 15, 12, 12, 15, 12, 12, 15, 20],
+    };
 
-    // Medium poses
-    const mediumPoses = [
-      "Bound_Angle_Pose_or_Baddha_Konasana_",
-      "Happy_Baby_Pose_or_Ananda_Balasana_",
-      "Low_Lunge_pose_or_Anjaneyasana_",
-      "Gate_Pose_or_Parighasana_",
-      "Virasana_or_Vajrasana",
-      "Staff_Pose_or_Dandasana_",
-      "Sitting pose 1 (normal)",
-    ].filter(pose => AVAILABLE_POSES.includes(pose));
+    const selectedFlow =
+      userAge >= 60 || health === "poor" || userWeight > 250
+        ? gentleFlow
+        : health === "excellent" && userAge < 40 && userWeight < 200
+          ? activeFlow
+          : balancedFlow;
 
-    // Advanced poses
-    const advancedPoses = [
-      "Boat_Pose_or_Paripurna_Navasana_",
-      "Plank_Pose_or_Kumbhakasana_",
-      "Four-Limbed_Staff_Pose_or_Chaturanga_Dandasana_",
-      "Dolphin_Plank_Pose_or_Makara_Adho_Mukha_Svanasana_",
-      "Extended_Revolved_Side_Angle_Pose_or_Utthita_Parsvakonasana_",
-      "Locust_Pose_or_Salabhasana_",
-    ].filter(pose => AVAILABLE_POSES.includes(pose));
-
-    // Determine plan based on age, weight, and health
-    let numPoses = 8; // Default
-    let baseHoldTime = 15; // Default hold time in seconds
-
-    if (userAge >= 60 || health === "poor" || userWeight > 250) {
-      // Older users, poor health, or high weight - easier plan
-      numPoses = 6;
-      baseHoldTime = 12;
-      selectedPoses.push(...easyPoses.slice(0, numPoses - 1));
-      holdTimes.push(...Array(numPoses - 1).fill(baseHoldTime));
-    } else if (userAge >= 40 || health === "fair" || userWeight > 200) {
-      // Middle-aged or fair health - moderate plan
-      numPoses = 8;
-      baseHoldTime = 15;
-      selectedPoses.push(...easyPoses.slice(0, 4));
-      selectedPoses.push(...mediumPoses.slice(0, 3));
-      holdTimes.push(...Array(4).fill(baseHoldTime));
-      holdTimes.push(...Array(3).fill(baseHoldTime));
-    } else if (health === "excellent" && userAge < 40 && userWeight < 200) {
-      // Super healthy, young, and fit - include harder poses
-      numPoses = 12;
-      baseHoldTime = 20;
-      selectedPoses.push(...easyPoses.slice(0, 2));
-      selectedPoses.push(...mediumPoses.slice(0, 4));
-      selectedPoses.push(...advancedPoses.slice(0, 5)); // More advanced poses
-      holdTimes.push(...Array(2).fill(baseHoldTime));
-      holdTimes.push(...Array(4).fill(baseHoldTime));
-      holdTimes.push(...Array(5).fill(baseHoldTime));
-    } else {
-      // Younger, good health - moderate challenging plan
-      numPoses = 10;
-      baseHoldTime = 18;
-      selectedPoses.push(...easyPoses.slice(0, 3));
-      selectedPoses.push(...mediumPoses.slice(0, 4));
-      selectedPoses.push(...advancedPoses.slice(0, 2));
-      holdTimes.push(...Array(3).fill(baseHoldTime));
-      holdTimes.push(...Array(4).fill(baseHoldTime));
-      holdTimes.push(...Array(2).fill(baseHoldTime));
-    }
-
-    // Ensure we only use available poses and don't exceed 24
-    selectedPoses = selectedPoses.filter(pose => AVAILABLE_POSES.includes(pose));
-    selectedPoses = selectedPoses.slice(0, Math.min(selectedPoses.length, 24));
-
-    // Adjust hold times to match
-    holdTimes = holdTimes.slice(0, selectedPoses.length);
+    const selectedPoses = selectedFlow.poses.filter((pose) => AVAILABLE_POSES.includes(pose));
+    const holdTimes = selectedFlow.holdTimes.slice(0, selectedPoses.length);
 
     return {
-      name: "Personalized Yoga Plan",
+      name: selectedFlow.name,
       poses: selectedPoses,
       hold_times: holdTimes,
     };

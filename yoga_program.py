@@ -15,58 +15,67 @@ class YogaProgram:
         self.load_programs()
     
     def load_programs(self):
-        """Load predefined yoga programs with easy standing poses"""
-        # Beginner program - Tree Pose FIRST
+        """Load predefined programs with smooth, practical transitions."""
         self.programs['beginner'] = {
             'name': 'Beginner Flow',
-            'description': 'Easy standing poses - Tree Pose first!',
+            'description': 'Floor warm-up, standing flow, and a calm finish.',
             'poses': [
-                'Tree_Pose_or_Vrksasana_',  # Tree Pose FIRST
-                'Standing_Forward_Bend_pose_or_Uttanasana_',
-                'Warrior_I_Pose_or_Virabhadrasana_I_',
+                'Cat_Cow_Pose_or_Marjaryasana_',
+                'Extended_Puppy_Pose_or_Uttana_Shishosana_',
+                'Low_Lunge_pose_or_Anjaneyasana_',
                 'Warrior_II_Pose_or_Virabhadrasana_II_',
+                'Tree_Pose_or_Vrksasana_',
+                'Garland_Pose_or_Malasana_',
+                'Supta_Baddha_Konasana_',
+                'Corpse_Pose_or_Savasana_',
             ],
-            'hold_times': [20, 15, 20, 20],  # seconds
+            'hold_times': [12, 12, 15, 15, 15, 12, 15, 20],
         }
         
-        # Morning program - Tree Pose FIRST
+        # Short morning sequence
         self.programs['morning'] = {
             'name': 'Morning Energizer',
-            'description': 'Easy standing poses - Tree Pose first!',
+            'description': 'A short progressive flow from floor to standing.',
             'poses': [
-                'Tree_Pose_or_Vrksasana_',  # Tree Pose FIRST
-                'Standing_Forward_Bend_pose_or_Uttanasana_',
-                'Warrior_I_Pose_or_Virabhadrasana_I_',
+                'Cat_Cow_Pose_or_Marjaryasana_',
+                'Low_Lunge_pose_or_Anjaneyasana_',
                 'Warrior_II_Pose_or_Virabhadrasana_II_',
+                'Chair_Pose_or_Utkatasana_',
+                'Tree_Pose_or_Vrksasana_',
+                'Virasana_or_Vajrasana',
             ],
-            'hold_times': [20, 15, 20, 20],
+            'hold_times': [10, 15, 15, 12, 15, 12],
         }
         
-        # Standing Balance program - Tree Pose FIRST
+        # Standing balance sequence
         self.programs['flexibility'] = {
             'name': 'Standing Balance',
-            'description': 'Easy standing balance - Tree Pose first!',
+            'description': 'Stable standing poses with sensible transitions.',
             'poses': [
-                'Tree_Pose_or_Vrksasana_',  # Tree Pose FIRST
-                'Standing_Forward_Bend_pose_or_Uttanasana_',
-                'Lord_of_the_Dance_Pose_or_Natarajasana_',
+                'Low_Lunge_pose_or_Anjaneyasana_',
+                'Warrior_II_Pose_or_Virabhadrasana_II_',
+                'Chair_Pose_or_Utkatasana_',
                 'Tree_Pose_or_Vrksasana_',
             ],
-            'hold_times': [20, 15, 20, 20],
+            'hold_times': [15, 15, 12, 15],
         }
         
-        # Custom program - Tree Pose FIRST
+        # General full-body sequence
         self.programs['custom'] = {
-            'name': 'Easy Standing Flow',
-            'description': 'All easy standing poses - Tree Pose first!',
+            'name': 'Balanced Full-Body Flow',
+            'description': 'Balanced full-body flow with a reclined finish.',
             'poses': [
-                'Tree_Pose_or_Vrksasana_',  # Tree Pose FIRST
-                'Standing_Forward_Bend_pose_or_Uttanasana_',
-                'Warrior_I_Pose_or_Virabhadrasana_I_',
+                'Cat_Cow_Pose_or_Marjaryasana_',
+                'Extended_Puppy_Pose_or_Uttana_Shishosana_',
+                'Low_Lunge_pose_or_Anjaneyasana_',
                 'Warrior_II_Pose_or_Virabhadrasana_II_',
                 'Tree_Pose_or_Vrksasana_',
+                'Garland_Pose_or_Malasana_',
+                'Virasana_or_Vajrasana',
+                'Supta_Baddha_Konasana_',
+                'Corpse_Pose_or_Savasana_',
             ],
-            'hold_times': [20, 15, 20, 20, 20],
+            'hold_times': [12, 12, 15, 15, 15, 12, 12, 15, 20],
         }
         
         # Comprehensive test program with all selected poses - TREE POSE FIRST
@@ -122,4 +131,3 @@ class YogaProgram:
                 if image_files:
                     return os.path.join(pose_dir, image_files[0])
         return None
-

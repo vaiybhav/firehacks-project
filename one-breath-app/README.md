@@ -1,8 +1,8 @@
-# OneBreath App
+# Horizons App
 
 A meditation and yoga app built with React, TypeScript, and Vite.
 
-**🌐 Production: [onebreath.socials](https://onebreath.socials)** (when deployed)
+**🌐 Production: [horizons.socials](https://horizons.socials)** (when deployed)
 
 ## Quick Start - Localhost
 
@@ -43,7 +43,7 @@ See [DEPLOY.md](./DEPLOY.md) for detailed deployment instructions.
 npm i -g vercel
 cd one-breath-app
 vercel
-vercel domains add onebreath.socials
+vercel domains add horizons.socials
 ```
 
 ## Features

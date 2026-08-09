@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# YogaBuddy - Complete Startup Script
+# Horizons - Complete Startup Script
 # Starts TTS backend and yoga app together
 
 echo "============================================================"
-echo "🧘 YogaBuddy - Starting Everything..."
+echo "🧘 Horizons - Starting Everything..."
 echo "============================================================"
 
 # Get the script directory

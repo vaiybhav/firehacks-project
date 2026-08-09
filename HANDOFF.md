@@ -1,10 +1,10 @@
-# YogaBuddy — Handoff
+# Horizons — Handoff
 
 Real-time yoga coach: webcam → MediaPipe pose detection → pose classification →
 form correction → live feedback in a React UI.
 
-**Project root:** `~/Programming/Quackathon/Yogabuddy`
-*(moved from `~/Downloads/Yogabuddy` — anything referencing the old path is stale)*
+**Project root:** `~/Programming/Quackathon/Horizons`
+*(moved from `~/Downloads/Horizons` — anything referencing the old path is stale)*
 
 ---
 
@@ -39,7 +39,7 @@ Socket.IO emits `video_frame`, `session_update`, `debug_update`, `pose_changed`,
 ## Running it
 
 ```bash
-cd ~/Programming/Quackathon/Yogabuddy
+cd ~/Programming/Quackathon/Horizons
 
 # TTS (:5001)
 cd tts_test && nohup ../.venv/bin/python -u backend.py > /tmp/yoga_tts_backend.log 2>&1 &
@@ -48,7 +48,7 @@ cd tts_test && nohup ../.venv/bin/python -u backend.py > /tmp/yoga_tts_backend.l
 cd .. && nohup .venv/bin/python -u yoga_api_server.py > /tmp/yoga_api_server.log 2>&1 &
 
 # Web app (:5003)
-cd one-breath-app && nohup npm run dev > /tmp/onebreath_app.log 2>&1 &
+cd one-breath-app && nohup npm run dev > /tmp/horizons_app.log 2>&1 &
 ```
 
 Then open **http://localhost:5003**. Starting a session opens the webcam
@@ -260,6 +260,6 @@ for this — but not for anything that adds to the per-frame budget.
 
 ## Related directories
 
-- `~/Downloads/oneBreath-main` — older copy, **missing `models/pose_classifier.pkl`**, won't run
+- `~/Downloads/Horizons-main` — older copy, **missing `models/pose_classifier.pkl`**, won't run
 - `~/Downloads/PoseFlow-Merged-Archive` — different lineage, separate GitHub remote,
   flattened layout, 3.1 GB including 1.4 GB of IDE history archives. Not this project.

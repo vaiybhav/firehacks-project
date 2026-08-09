@@ -1,5 +1,5 @@
 """
-Complete setup and run script for YogaBuddy
+Complete setup and run script for Horizons
 - Generates angle templates
 - Trains classifier
 - Runs the app
@@ -75,7 +75,7 @@ def setup_classifier():
 def run_app(program_name="test_all", camera_id=0):
     """Run the guided yoga session"""
     print("\n" + "="*60)
-    print("🧘 Starting YogaBuddy App")
+    print("🧘 Starting Horizons App")
     print("="*60)
     
     from guided_session import GuidedSession
@@ -93,7 +93,7 @@ def run_app(program_name="test_all", camera_id=0):
 def main():
     """Main setup and run function"""
     print("="*60)
-    print("🧘 YogaBuddy - Complete Setup & Run")
+    print("🧘 Horizons - Complete Setup & Run")
     print("="*60)
     
     # Step 0: Check dataset

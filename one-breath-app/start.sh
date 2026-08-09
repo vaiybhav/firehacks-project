@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# OneBreath App - Startup Script
+# Horizons App - Startup Script
 echo "============================================================"
-echo "🌬️  OneBreath App - Starting..."
+echo "🌬️  Horizons App - Starting..."
 echo "============================================================"
 
 # Get script directory

@@ -1,5 +1,5 @@
 """
-Configuration file for YogaBuddy app
+Configuration file for Horizons app
 """
 import os
 

@@ -118,7 +118,7 @@ All colors MUST be HSL.
   }
 }
 
-/* Custom animations for OneBreath */
+/* Custom animations for Horizons */
 @keyframes breathe-in {
   0% {
     transform: scale(1);

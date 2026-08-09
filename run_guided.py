@@ -8,7 +8,7 @@ from yoga_program import YogaProgram
 
 def main():
     print("="*60)
-    print("🧘 YogaBuddy - Guided Session")
+    print("🧘 Horizons - Guided Session")
     print("="*60)
     
     # Initialize

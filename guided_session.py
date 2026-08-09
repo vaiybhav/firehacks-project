@@ -159,7 +159,7 @@ class GuidedSession:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         corrections_filename = os.path.join(config.OUTPUT_DIR, f"corrections_{timestamp}.txt")
         self.corrections_file = open(corrections_filename, 'w', encoding='utf-8')
-        self.corrections_file.write(f"🧘 YogaBuddy - Session Corrections Log\n")
+        self.corrections_file.write(f"🧘 Horizons - Session Corrections Log\n")
         self.corrections_file.write(f"{'='*60}\n")
         self.corrections_file.write(f"Program: {program['name']}\n")
         self.corrections_file.write(f"Description: {program['description']}\n")
@@ -1557,8 +1557,8 @@ class GuidedSession:
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
         
         # Create resizable window
-        cv2.namedWindow('YogaBuddy - Guided Session', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('YogaBuddy - Guided Session', 1920, 1080)
+        cv2.namedWindow('Horizons - Guided Session', cv2.WINDOW_NORMAL)
+        cv2.resizeWindow('Horizons - Guided Session', 1920, 1080)
         
         # Camera ready
         # Controls available
@@ -1590,7 +1590,7 @@ class GuidedSession:
             output = self.draw_guided_feedback(frame, session_state)
             
             # Display
-            cv2.imshow('YogaBuddy - Guided Session', output)
+            cv2.imshow('Horizons - Guided Session', output)
             
             key = cv2.waitKey(1)
             

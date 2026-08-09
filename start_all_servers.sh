@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Start All Servers for OneBreath App
+# Start All Servers for Horizons App
 echo "============================================================"
-echo "🚀 Starting All Servers for OneBreath"
+echo "🚀 Starting All Servers for Horizons"
 echo "============================================================"
 
 # Get script directory
@@ -11,7 +11,7 @@ cd "$SCRIPT_DIR"
 
 # Kill any existing processes
 echo "🧹 Cleaning up existing processes..."
-# Port 5000 is macOS Control Center/AirPlay, not YogaBuddy.
+# Port 5000 is macOS Control Center/AirPlay, not Horizons.
 lsof -ti:5001,5002,5003,8080 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 1
 
@@ -47,7 +47,7 @@ cd "$SCRIPT_DIR/one-breath-app"
 if [ ! -d "node_modules" ]; then
     npm install --silent
 fi
-npm run dev > /tmp/onebreath_app.log 2>&1 &
+npm run dev > /tmp/horizons_app.log 2>&1 &
 WEB_PID=$!
 cd "$SCRIPT_DIR"
 sleep 3

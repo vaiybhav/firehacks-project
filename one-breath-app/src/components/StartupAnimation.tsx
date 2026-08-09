@@ -59,7 +59,7 @@ const StartupAnimation = () => {
               textShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 8px 40px rgba(0, 0, 0, 0.3), 0 0 60px rgba(255, 255, 255, 0.2)',
             }}
           >
-            OneBreath
+            Horizons
           </h1>
           <p 
             className="text-2xl md:text-3xl text-white/80 font-light tracking-wide mb-12 animate-float"

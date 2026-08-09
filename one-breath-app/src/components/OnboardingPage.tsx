@@ -224,7 +224,7 @@ const OnboardingPage = () => {
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative z-10 max-w-2xl w-full bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
         <h2 className="text-4xl font-light text-white mb-8 text-center">
-          {step === 1 ? "Welcome to OneBreath" : "Tell Us About Yourself"}
+          {step === 1 ? "Welcome to Horizons" : "Tell Us About Yourself"}
         </h2>
 
         {step === 1 ? (

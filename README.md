@@ -113,7 +113,7 @@ See `config.py` for the complete list.
 ## Project Structure
 
 ```
-Yogabuddy/
+Horizons/
 ├── config.py                 # Configuration and constants
 ├── pose_detector.py          # MediaPipe Pose Landmarker detection
 ├── pose_classifier.py        # KNN pose classifier

@@ -11,6 +11,12 @@ export default defineConfig(({ mode }) => ({
     port: 5003,
     // Allow external connections for custom domain
     strictPort: true,
+    proxy: {
+      "/community-posts": {
+        target: "http://127.0.0.1:5002",
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     host: "::",

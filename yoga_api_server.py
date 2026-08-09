@@ -12,6 +12,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from guided_session import GuidedSession
+from reddit_community import scrape_reddit_posts
 import threading
 import time
 
@@ -797,6 +798,42 @@ def health():
         'service': 'Yoga API Server',
         'session_running': is_running
     })
+
+# Cache so opening Community doesn't re-hit Reddit every navigation.
+_community_reddit_cache = {'posts': None, 'fetched_at': 0.0}
+_COMMUNITY_CACHE_TTL_SEC = 10 * 60  # 10 minutes
+
+
+@app.route('/community-posts', methods=['GET'])
+def community_posts():
+    """Scrape Reddit (.json shortcut) and return up to 15 Community Wall posts."""
+    try:
+        count = min(max(int(request.args.get('limit', 15)), 1), 15)
+        refresh = request.args.get('refresh', '') in ('1', 'true', 'yes')
+        now = time.time()
+        cached = _community_reddit_cache['posts']
+        age = now - float(_community_reddit_cache['fetched_at'] or 0)
+
+        if cached is not None and not refresh and age < _COMMUNITY_CACHE_TTL_SEC:
+            return jsonify({
+                'posts': cached[:count],
+                'count': min(len(cached), count),
+                'cached': True,
+            })
+
+        posts = scrape_reddit_posts(count=count)
+        _community_reddit_cache['posts'] = posts
+        _community_reddit_cache['fetched_at'] = now
+        return jsonify({
+            'posts': posts,
+            'count': len(posts),
+            'cached': False,
+        })
+    except Exception as e:
+        print(f"Error scraping community posts: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'posts': [], 'count': 0}), 500
 
 @app.route('/list-cameras', methods=['GET'])
 def list_cameras():

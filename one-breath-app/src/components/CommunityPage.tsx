@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, MessageCircle, Heart, Share2 } from "lucide-react";
+import { ArrowLeft, Plus, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import meditationBg from "@/assets/meditation-silhouette.jpg";
 
@@ -26,77 +26,56 @@ const CommunityPage = () => {
   const [bridgeWho, setBridgeWho] = useState("");
   const [bridgeWhat, setBridgeWhat] = useState("");
   const [loadingReddit, setLoadingReddit] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Load posts from localStorage
+  // Scrape Reddit (via API) when Community opens — max 15 posts
   useEffect(() => {
-    loadPosts();
-    // Load Reddit posts on mount
-    loadRedditPosts();
+    void loadRedditPosts();
   }, []);
 
-  const loadPosts = () => {
+  const loadLocalPosts = (): CommunityPost[] => {
     try {
       const raw = localStorage.getItem("communityPosts");
       if (raw) {
-        const savedPosts = JSON.parse(raw);
-        setPosts(savedPosts);
+        return (JSON.parse(raw) as CommunityPost[]).filter((p) => p.type !== "reddit");
       }
     } catch (e) {
       console.error("Error loading posts", e);
     }
+    return [];
   };
 
-  const savePosts = (newPosts: CommunityPost[]) => {
+  const saveLocalPosts = (localPosts: CommunityPost[]) => {
     try {
-      localStorage.setItem("communityPosts", JSON.stringify(newPosts));
-      setPosts(newPosts);
+      localStorage.setItem("communityPosts", JSON.stringify(localPosts));
     } catch (e) {
       console.error("Error saving posts", e);
     }
   };
 
-  const loadRedditPosts = async () => {
+  const loadRedditPosts = async (refresh = false) => {
     setLoadingReddit(true);
+    setLoadError(null);
     try {
-      // Fetch from multiple subreddits to get more posts
-      const subreddits = ['meditation', 'yoga', 'mindfulness', 'mindful', 'ZenHabits', 'Buddhism'];
-      let allRedditPosts: CommunityPost[] = [];
-      
-      // Fetch from each subreddit
-      for (const subreddit of subreddits) {
-        try {
-          const response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?limit=25`);
-          const data = await response.json();
-          
-          const redditPosts: CommunityPost[] = data.data.children
-            .filter((child: any) => child.data.selftext && child.data.selftext.length > 30)
-            .map((child: any) => ({
-              id: `reddit_${child.data.id}`,
-              type: "reddit" as const,
-              author: child.data.author,
-              text: child.data.selftext.substring(0, 500) + (child.data.selftext.length > 500 ? "..." : ""),
-              timestamp: child.data.created_utc * 1000,
-              upvotes: child.data.ups,
-              subreddit: child.data.subreddit,
-            }));
-          
-          allRedditPosts = [...allRedditPosts, ...redditPosts];
-        } catch (subError) {
-          console.error(`Error loading from r/${subreddit}:`, subError);
-          // Continue with other subreddits
-        }
+      // Proxied by Vite → yoga API :5002 (avoids hard dependency on CORS/direct port)
+      const url = `/community-posts?limit=15${refresh ? "&refresh=1" : ""}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Community posts failed: ${response.status}`);
       }
-
-      // Merge with existing posts, avoiding duplicates
-      const existingIds = new Set(posts.map(p => p.id));
-      const newRedditPosts = allRedditPosts.filter(p => !existingIds.has(p.id));
-      
-      if (newRedditPosts.length > 0) {
-        const allPosts = [...posts, ...newRedditPosts].sort((a, b) => b.timestamp - a.timestamp);
-        savePosts(allPosts);
+      const data = await response.json();
+      const redditPosts = (data.posts || []) as CommunityPost[];
+      if (redditPosts.length === 0) {
+        setLoadError("Reddit returned no posts. Hit Refresh in a moment.");
       }
+      const localPosts = loadLocalPosts();
+      setPosts(
+        [...localPosts, ...redditPosts].sort((a, b) => b.timestamp - a.timestamp)
+      );
     } catch (error) {
       console.error("Error loading Reddit posts:", error);
+      setLoadError("Couldn't reach the yoga API on port 5002. Is it running?");
+      setPosts(loadLocalPosts());
     } finally {
       setLoadingReddit(false);
     }
@@ -113,8 +92,9 @@ const CommunityPage = () => {
       timestamp: Date.now(),
     };
 
-    const updatedPosts = [newPost, ...posts];
-    savePosts(updatedPosts);
+    const localPosts = [newPost, ...loadLocalPosts()];
+    saveLocalPosts(localPosts);
+    setPosts((prev) => [newPost, ...prev]);
     setStoryName("");
     setStoryText("");
     setShowStoryForm(false);
@@ -131,8 +111,9 @@ const CommunityPage = () => {
       timestamp: Date.now(),
     };
 
-    const updatedPosts = [newPost, ...posts];
-    savePosts(updatedPosts);
+    const localPosts = [newPost, ...loadLocalPosts()];
+    saveLocalPosts(localPosts);
+    setPosts((prev) => [newPost, ...prev]);
     setBridgeWho("");
     setBridgeWhat("");
     setShowBridgeForm(false);
@@ -149,7 +130,7 @@ const CommunityPage = () => {
       case "bridge":
         return "Yoga Bridge";
       case "reddit":
-        return "From r/meditation";
+        return post.subreddit ? `From r/${post.subreddit}` : "From Reddit";
       default:
         return "Post";
     }
@@ -203,7 +184,7 @@ const CommunityPage = () => {
             Yoga Bridge
           </Button>
           <Button
-            onClick={loadRedditPosts}
+            onClick={() => void loadRedditPosts(true)}
             disabled={loadingReddit}
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30"
           >
@@ -290,9 +271,15 @@ const CommunityPage = () => {
 
         {/* Posts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedPosts.length === 0 ? (
+          {loadingReddit && sortedPosts.length === 0 ? (
             <div className="col-span-full text-center py-12">
-              <p className="text-white/60 text-xl">No posts yet. Be the first to share!</p>
+              <p className="text-white/60 text-xl">Loading community posts…</p>
+            </div>
+          ) : sortedPosts.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <p className="text-white/60 text-xl">
+                {loadError || "No posts yet. Be the first to share!"}
+              </p>
             </div>
           ) : (
             sortedPosts.map((post) => (

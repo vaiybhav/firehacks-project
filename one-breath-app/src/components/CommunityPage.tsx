@@ -3,18 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import meditationBg from "@/assets/meditation-silhouette.jpg";
-
-interface CommunityPost {
-  id: string;
-  type: "story" | "bridge" | "reddit";
-  name?: string;
-  who?: string;
-  author?: string;
-  text: string;
-  timestamp: number;
-  upvotes?: number;
-  subreddit?: string;
-}
+import {
+  createCommunityPost,
+  fetchCommunityPosts,
+  type CommunityPost,
+} from "@/lib/communityPosts";
+import { isFirebaseConfigured } from "@/lib/firebase";
 
 const CommunityPage = () => {
   const navigate = useNavigate();
@@ -25,98 +19,117 @@ const CommunityPage = () => {
   const [storyText, setStoryText] = useState("");
   const [bridgeWho, setBridgeWho] = useState("");
   const [bridgeWhat, setBridgeWhat] = useState("");
-  const [loadingReddit, setLoadingReddit] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Scrape Reddit (via API) when Community opens — max 15 posts
   useEffect(() => {
-    void loadRedditPosts();
+    void loadWall();
   }, []);
 
-  const loadLocalPosts = (): CommunityPost[] => {
-    try {
-      const raw = localStorage.getItem("communityPosts");
-      if (raw) {
-        return (JSON.parse(raw) as CommunityPost[]).filter((p) => p.type !== "reddit");
-      }
-    } catch (e) {
-      console.error("Error loading posts", e);
-    }
-    return [];
-  };
-
-  const saveLocalPosts = (localPosts: CommunityPost[]) => {
-    try {
-      localStorage.setItem("communityPosts", JSON.stringify(localPosts));
-    } catch (e) {
-      console.error("Error saving posts", e);
-    }
-  };
-
-  const loadRedditPosts = async (refresh = false) => {
-    setLoadingReddit(true);
+  const loadWall = async (refreshReddit = false) => {
+    setLoading(true);
     setLoadError(null);
     try {
-      // Proxied by Vite → yoga API :5002 (avoids hard dependency on CORS/direct port)
+      const [firebasePosts, redditPosts] = await Promise.all([
+        fetchUserPosts(),
+        fetchRedditPosts(refreshReddit),
+      ]);
+      setPosts(
+        [...firebasePosts, ...redditPosts].sort((a, b) => b.timestamp - a.timestamp)
+      );
+    } catch (error) {
+      console.error("Error loading community wall:", error);
+      setLoadError("Couldn't load the community wall. Try Refresh.");
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserPosts = async (): Promise<CommunityPost[]> => {
+    if (!isFirebaseConfigured()) {
+      return [];
+    }
+    try {
+      return await fetchCommunityPosts(40);
+    } catch (error) {
+      console.error("Error loading Firebase posts:", error);
+      setLoadError("Couldn't load saved posts from Firebase.");
+      return [];
+    }
+  };
+
+  const fetchRedditPosts = async (refresh = false): Promise<CommunityPost[]> => {
+    try {
       const url = `/community-posts?limit=15${refresh ? "&refresh=1" : ""}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Community posts failed: ${response.status}`);
       }
       const data = await response.json();
-      const redditPosts = (data.posts || []) as CommunityPost[];
-      if (redditPosts.length === 0) {
-        setLoadError("Reddit returned no posts. Hit Refresh in a moment.");
-      }
-      const localPosts = loadLocalPosts();
-      setPosts(
-        [...localPosts, ...redditPosts].sort((a, b) => b.timestamp - a.timestamp)
-      );
+      return (data.posts || []) as CommunityPost[];
     } catch (error) {
       console.error("Error loading Reddit posts:", error);
-      setLoadError("Couldn't reach the yoga API on port 5002. Is it running?");
-      setPosts(loadLocalPosts());
-    } finally {
-      setLoadingReddit(false);
+      // User posts from Firebase can still show if Reddit/API is down.
+      return [];
     }
   };
 
-  const submitStory = () => {
-    if (!storyText.trim()) return;
+  const submitStory = async () => {
+    if (!storyText.trim() || saving) return;
 
-    const newPost: CommunityPost = {
-      id: `story_${Date.now()}`,
-      type: "story",
-      name: storyName.trim() || "Anonymous",
-      text: storyText.trim(),
-      timestamp: Date.now(),
-    };
+    if (!isFirebaseConfigured()) {
+      setLoadError("Firebase is not configured. Add VITE_FIREBASE_* env vars.");
+      return;
+    }
 
-    const localPosts = [newPost, ...loadLocalPosts()];
-    saveLocalPosts(localPosts);
-    setPosts((prev) => [newPost, ...prev]);
-    setStoryName("");
-    setStoryText("");
-    setShowStoryForm(false);
+    setSaving(true);
+    setLoadError(null);
+    try {
+      const newPost = await createCommunityPost({
+        type: "story",
+        name: storyName.trim() || "Anonymous",
+        text: storyText.trim(),
+      });
+      setPosts((prev) => [newPost, ...prev]);
+      setStoryName("");
+      setStoryText("");
+      setShowStoryForm(false);
+    } catch (error) {
+      console.error("Error posting story:", error);
+      setLoadError("Couldn't save your story to Firebase.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const submitBridge = () => {
-    if (!bridgeWhat.trim()) return;
+  const submitBridge = async () => {
+    if (!bridgeWhat.trim() || saving) return;
 
-    const newPost: CommunityPost = {
-      id: `bridge_${Date.now()}`,
-      type: "bridge",
-      who: bridgeWho.trim() || "Someone",
-      text: bridgeWhat.trim(),
-      timestamp: Date.now(),
-    };
+    if (!isFirebaseConfigured()) {
+      setLoadError("Firebase is not configured. Add VITE_FIREBASE_* env vars.");
+      return;
+    }
 
-    const localPosts = [newPost, ...loadLocalPosts()];
-    saveLocalPosts(localPosts);
-    setPosts((prev) => [newPost, ...prev]);
-    setBridgeWho("");
-    setBridgeWhat("");
-    setShowBridgeForm(false);
+    setSaving(true);
+    setLoadError(null);
+    try {
+      const newPost = await createCommunityPost({
+        type: "bridge",
+        who: bridgeWho.trim() || "Someone",
+        text: bridgeWhat.trim(),
+      });
+      setPosts((prev) => [newPost, ...prev]);
+      setBridgeWho("");
+      setBridgeWhat("");
+      setShowBridgeForm(false);
+    } catch (error) {
+      console.error("Error posting bridge:", error);
+      setLoadError("Couldn't save your yoga bridge to Firebase.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -142,10 +155,9 @@ const CommunityPage = () => {
     return post.name || "Anonymous";
   };
 
-  // Sort posts and limit to 40 most recent
   const sortedPosts = [...posts]
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 40); // Show up to 40 posts
+    .slice(0, 40);
 
   return (
     <div className="fixed inset-0 overflow-y-auto">
@@ -184,11 +196,11 @@ const CommunityPage = () => {
             Yoga Bridge
           </Button>
           <Button
-            onClick={() => void loadRedditPosts(true)}
-            disabled={loadingReddit}
+            onClick={() => void loadWall(true)}
+            disabled={loading}
             className="bg-white/20 hover:bg-white/30 text-white border border-white/30"
           >
-            {loadingReddit ? "Loading..." : "Refresh"}
+            {loading ? "Loading..." : "Refresh"}
           </Button>
         </div>
       </div>
@@ -196,6 +208,10 @@ const CommunityPage = () => {
       {/* Content */}
       <div className="relative z-10 max-w-6xl mx-auto px-6 pb-12">
         <h1 className="text-6xl font-light text-white mb-8 text-center">Community Wall</h1>
+
+        {loadError && (
+          <p className="text-center text-amber-200/90 mb-6">{loadError}</p>
+        )}
 
         {/* Story Form */}
         {showStoryForm && (
@@ -225,10 +241,11 @@ const CommunityPage = () => {
                   Cancel
                 </Button>
                 <Button
-                  onClick={submitStory}
+                  onClick={() => void submitStory()}
+                  disabled={saving}
                   className="bg-white/20 hover:bg-white/30 text-white"
                 >
-                  Post Story
+                  {saving ? "Posting..." : "Post Story"}
                 </Button>
               </div>
             </div>
@@ -260,10 +277,11 @@ const CommunityPage = () => {
                 Cancel
               </Button>
               <Button
-                onClick={submitBridge}
+                onClick={() => void submitBridge()}
+                disabled={saving}
                 className="bg-white/20 hover:bg-white/30 text-white"
               >
-                Post Bridge
+                {saving ? "Posting..." : "Post Bridge"}
               </Button>
             </div>
           </div>
@@ -271,7 +289,7 @@ const CommunityPage = () => {
 
         {/* Posts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loadingReddit && sortedPosts.length === 0 ? (
+          {loading && sortedPosts.length === 0 ? (
             <div className="col-span-full text-center py-12">
               <p className="text-white/60 text-xl">Loading community posts…</p>
             </div>
